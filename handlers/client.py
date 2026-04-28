@@ -2,7 +2,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 
 from db import connect
-from services.balance import calc_balance
+from balance import calc_balance
 
 router = Router()
 
