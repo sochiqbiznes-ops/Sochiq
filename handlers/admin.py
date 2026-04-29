@@ -7,7 +7,7 @@ from keyboards.reply_menu import admin_reply_kb
 
 router = Router()
 user_state = {}
-
+current_barber = {}
 
 # =====================
 # START
