@@ -164,9 +164,9 @@ async def handler(m: types.Message):
     # =====================
     # ACTIONS
     # =====================
-    text.isdigit():
-    action = st.get("action")
-    client = st.get("client")
+text.isdigit():
+action = st.get("action")
+client = st.get("client")
 
     if not action or not client:
         return
