@@ -13,9 +13,9 @@ def register(dp):
     async def list_clients(m: types.Message):
         rows = get_clients()
 
-        kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
-
-        for r in rows:
-            kb.add(r[0])
+        kb = types.ReplyKeyboardMarkup(
+            keyboard=[[types.KeyboardButton(text=r[0])] for r in rows],
+            resize_keyboard=True
+        )
 
         await m.answer("👤 Mijoz tanlang:", reply_markup=kb)
