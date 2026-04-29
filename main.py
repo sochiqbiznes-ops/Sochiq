@@ -1,6 +1,9 @@
 import os
+import asyncio
 import sqlite3
-from aiogram import Bot, Dispatcher, types, executor
+
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.filters import CommandStart
 
 # =====================
 # 🔐 ENV
@@ -9,7 +12,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
 bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(bot)
+dp = Dispatcher()
 
 # =====================
 # 🗄 DATABASE
@@ -29,9 +32,9 @@ CREATE TABLE IF NOT EXISTS clients (
 conn.commit()
 
 # =====================
-# 🧠 STATE (TEMP)
+# 🧠 STATE
 # =====================
-user_state = {}  # {user_id: {"action": "", "client": ""}}
+user_state = {}
 
 # =====================
 # HELPERS
@@ -45,37 +48,42 @@ def update(name, field, value):
     conn.commit()
 
 def set_value(name, field, value):
-    cur.execute(f"UPDATE clients SET {field} = ? WHERE name=?", (value, name))
+    cur.execute(f"UPDATE clients SET {field}=? WHERE name=?", (value, name))
     conn.commit()
 
-def calc(client):
-    total = client[2] * client[3]
-    debt = total - client[4]
+def calc(c):
+    total = c[2] * c[3]
+    debt = total - c[4]
     return total, debt
 
 # =====================
 # 🏠 START
 # =====================
-@dp.message_handler(commands=['start'])
+@dp.message(CommandStart())
 async def start(m: types.Message):
-    kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add("➕ Mijoz qo‘shish", "👥 Mijozlar")
-    kb.add("📊 Hisobot")
+    kb = types.ReplyKeyboardMarkup(
+        keyboard=[
+            [types.KeyboardButton(text="➕ Mijoz qo‘shish"), types.KeyboardButton(text="👥 Mijozlar")],
+            [types.KeyboardButton(text="📊 Hisobot")]
+        ],
+        resize_keyboard=True
+    )
+
     await m.answer("💼 CRM tizim ishga tushdi", reply_markup=kb)
 
 # =====================
 # ➕ ADD CLIENT
 # =====================
-@dp.message_handler(lambda m: m.text == "➕ Mijoz qo‘shish")
-async def add(m: types.Message):
-    user_state[m.from_user.id] = {"action": "add_client"}
+@dp.message(F.text == "➕ Mijoz qo‘shish")
+async def add_client(m: types.Message):
+    user_state[m.from_user.id] = {"action": "add"}
     await m.answer("👤 Mijoz ismini yozing:")
 
 # =====================
 # 👥 LIST CLIENTS
 # =====================
-@dp.message_handler(lambda m: m.text == "👥 Mijozlar")
-async def list_clients(m: types.Message):
+@dp.message(F.text == "👥 Mijozlar")
+async def clients(m: types.Message):
     cur.execute("SELECT name FROM clients")
     rows = cur.fetchall()
 
@@ -83,49 +91,51 @@ async def list_clients(m: types.Message):
         await m.answer("❌ Mijoz yo‘q")
         return
 
-    kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    for r in rows:
-        kb.add(r[0])
+    kb = types.ReplyKeyboardMarkup(
+        keyboard=[[types.KeyboardButton(text=r[0])] for r in rows],
+        resize_keyboard=True
+    )
 
     await m.answer("👤 Mijoz tanlang:", reply_markup=kb)
 
 # =====================
 # MAIN HANDLER
 # =====================
-@dp.message_handler()
+@dp.message()
 async def handler(m: types.Message):
     uid = m.from_user.id
     text = m.text
 
     state = user_state.get(uid, {})
 
-    # ➕ CREATE CLIENT
-    if state.get("action") == "add_client":
+    # ➕ ADD CLIENT SAVE
+    if state.get("action") == "add":
         try:
             cur.execute("INSERT INTO clients (name) VALUES (?)", (text,))
             conn.commit()
-            await m.answer(f"✔️ {text} qo‘shildi")
+            await m.answer("✔️ Qo‘shildi")
         except:
             await m.answer("❌ Bunday mijoz bor")
+
         user_state[uid] = {}
         return
 
+    # 👤 OPEN CLIENT
     client = get_client(text)
 
-    # 👤 OPEN CLIENT PROFILE
     if client:
-        name = client[1]
-        price = client[2]
-        taken = client[3]
-        paid = client[4]
-
+        name, price, taken, paid = client[1], client[2], client[3], client[4]
         total, debt = calc(client)
 
         user_state[uid] = {"client": name}
 
-        kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        kb.add("📦 Topshirish", "💳 To‘lov")
-        kb.add("💰 Narx")
+        kb = types.ReplyKeyboardMarkup(
+            keyboard=[
+                [types.KeyboardButton(text="📦 Topshirish"), types.KeyboardButton(text="💳 To‘lov")],
+                [types.KeyboardButton(text="💰 Narx")]
+            ],
+            resize_keyboard=True
+        )
 
         await m.answer(f"""
 👤 {name}
@@ -151,7 +161,7 @@ async def handler(m: types.Message):
     # =====================
     if text == "💳 To‘lov":
         user_state[uid]["action"] = "pay"
-        await m.answer("💰 To‘lov summasi (so‘m):")
+        await m.answer("💰 To‘lov summasi:")
         return
 
     # =====================
@@ -163,7 +173,7 @@ async def handler(m: types.Message):
         return
 
     # =====================
-    # NUMBERS INPUT
+    # NUMBER INPUT
     # =====================
     if text.isdigit():
         action = state.get("action")
@@ -188,9 +198,9 @@ async def handler(m: types.Message):
         return
 
 # =====================
-# 📊 HISOBOT
+# 📊 REPORT
 # =====================
-@dp.message_handler(lambda m: m.text == "📊 Hisobot")
+@dp.message(F.text == "📊 Hisobot")
 async def report(m: types.Message):
     cur.execute("SELECT * FROM clients")
     rows = cur.fetchall()
@@ -207,5 +217,8 @@ async def report(m: types.Message):
 # =====================
 # RUN
 # =====================
+async def main():
+    await dp.start_polling(bot)
+
 if __name__ == "__main__":
-    executor.start_polling(dp, skip_updates=True)
+    asyncio.run(main())
