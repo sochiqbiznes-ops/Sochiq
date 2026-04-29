@@ -5,9 +5,8 @@ from config import ADMIN_ID
 from db import connect
 from keyboards import main_menu_kb
 
-router = Router()
-
-user_state = {}
+from keyboards.main_menu import barber_inline_kb
+from keyboards.reply_menu import admin_reply_kb
 
 
 @router.message(F.text == "/start")
@@ -24,9 +23,13 @@ async def start_handler(message: Message):
 
     await message.answer(
         "🏠 Bosh menyu",
-        reply_markup=main_menu_kb(barbers)
+        reply_markup=admin_reply_kb()
     )
 
+    await message.answer(
+        "🏪 Sartaroshxonalar:",
+        reply_markup=barber_inline_kb(barbers)
+    )
 
 @router.callback_query()
 async def callback_handler(call: CallbackQuery):
