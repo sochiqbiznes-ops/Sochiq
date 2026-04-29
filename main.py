@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS clients (
 """)
 conn.commit()
 
+# ================= STATE =================
 state = {}
 
 # ================= START =================
@@ -32,8 +33,7 @@ state = {}
 async def start(m: types.Message):
     kb = types.ReplyKeyboardMarkup(
         keyboard=[
-            [types.KeyboardButton(text="➕ Mijoz qo‘shish"), types.KeyboardButton(text="👥 Mijozlar")],
-            [types.KeyboardButton(text="📊 Hisobot")]
+            [types.KeyboardButton(text="➕ Mijoz qo‘shish"), types.KeyboardButton(text="👥 Mijozlar")]
         ],
         resize_keyboard=True
     )
@@ -51,10 +51,6 @@ async def list_clients(m: types.Message):
     cur.execute("SELECT name FROM clients")
     rows = cur.fetchall()
 
-    if not rows:
-        await m.answer("❌ Mijoz yo‘q")
-        return
-
     kb = types.ReplyKeyboardMarkup(
         keyboard=[[types.KeyboardButton(text=r[0])] for r in rows],
         resize_keyboard=True
@@ -67,10 +63,9 @@ async def list_clients(m: types.Message):
 async def handler(m: types.Message):
     uid = m.from_user.id
     text = m.text
-
     st = state.get(uid, {})
 
-    # ADD
+    # ➕ ADD
     if st.get("action") == "add":
         cur.execute("INSERT OR IGNORE INTO clients (name) VALUES (?)", (text,))
         conn.commit()
@@ -78,17 +73,15 @@ async def handler(m: types.Message):
         await m.answer("✔️ Qo‘shildi")
         return
 
-    # OPEN CLIENT
+    # 👤 OPEN CLIENT (MUHIM FIX)
     cur.execute("SELECT * FROM clients WHERE name=?", (text,))
     c = cur.fetchone()
 
     if c:
-        name = c[1]
-        price = c[2]
-        taken = c[3]
-        paid = c[4]
-
-        state[uid] = {"client": name}
+        state[uid] = {
+            "client_id": c[0],
+            "client_name": c[1]
+        }
 
         kb = types.ReplyKeyboardMarkup(
             keyboard=[
@@ -99,41 +92,42 @@ async def handler(m: types.Message):
         )
 
         await m.answer(f"""
-👤 {name}
+👤 {c[1]}
 
-📦 {taken}
-💰 {price}
-💳 {paid}
+📦 Olingan: {c[3]}
+💰 Narx: {c[2]}
+💳 To‘langan: {c[4]}
 """, reply_markup=kb)
         return
 
-    # ACTIONS
+    # ================= ACTIONS =================
     if text in ["📦 Topshirish", "💳 To‘lov", "💰 Narx"]:
         state[uid]["action"] = text
         await m.answer("Raqam kiriting:")
         return
 
-    # NUMBERS
+    # ================= NUMBERS =================
     if text.isdigit():
         action = st.get("action")
-        client = st.get("client")
+        client_id = st.get("client_id")
 
-        if not client:
+        if not client_id:
             return
 
         val = int(text)
 
         if action == "📦 Topshirish":
-            cur.execute("UPDATE clients SET taken = taken + ? WHERE name=?", (val, client))
+            cur.execute("UPDATE clients SET taken = taken + ? WHERE id=?", (val, client_id))
 
         elif action == "💳 To‘lov":
-            cur.execute("UPDATE clients SET paid = paid + ? WHERE name=?", (val, client))
+            cur.execute("UPDATE clients SET paid = paid + ? WHERE id=?", (val, client_id))
 
         elif action == "💰 Narx":
-            cur.execute("UPDATE clients SET price=? WHERE name=?", (val, client))
+            cur.execute("UPDATE clients SET price=? WHERE id=?", (val, client_id))
 
         conn.commit()
         state[uid] = {}
+
         await m.answer("✔️ Saqlandi")
 
 # ================= RUN =================
