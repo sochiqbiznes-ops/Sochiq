@@ -1,36 +1,28 @@
-import sqlite3
+import os
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import String, Integer
 
-conn = sqlite3.connect("crm.db", check_same_thread=False)
-cur = conn.cursor()
+# DATABASE_URL ni olish va asyncpg ga moslash
+DATABASE_URL = os.getenv("DATABASE_URL")
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
 
-cur.execute("""
-CREATE TABLE IF NOT EXISTS clients (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT UNIQUE,
-    price INTEGER DEFAULT 0,
-    taken INTEGER DEFAULT 0,
-    paid INTEGER DEFAULT 0
-)
-""")
+engine = create_async_engine(DATABASE_URL, echo=False)
+async_session = async_sessionmaker(engine, expire_on_commit=False)
 
-conn.commit()
+class Base(DeclarativeBase):
+    pass
 
-def add_client(name):
-    cur.execute("INSERT OR IGNORE INTO clients (name) VALUES (?)", (name,))
-    conn.commit()
+class Customer(Base):
+    __tablename__ = "customers"
+    
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True)
+    price: Mapped[int] = mapped_column(Integer, default=0)
+    taken: Mapped[int] = mapped_column(Integer, default=0)
+    paid: Mapped[int] = mapped_column(Integer, default=0)
 
-def get_clients():
-    cur.execute("SELECT name FROM clients")
-    return cur.fetchall()
-
-def get_client(name):
-    cur.execute("SELECT * FROM clients WHERE name=?", (name,))
-    return cur.fetchone()
-
-def update(name, field, value):
-    cur.execute(f"UPDATE clients SET {field} = {field} + ? WHERE name=?", (value, name))
-    conn.commit()
-
-def set_value(name, field, value):
-    cur.execute(f"UPDATE clients SET {field}=? WHERE name=?", (value, name))
-    conn.commit()
+async def init_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
