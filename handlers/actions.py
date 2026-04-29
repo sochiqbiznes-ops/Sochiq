@@ -1,7 +1,6 @@
 from aiogram import types
 from database import *
 from state import user_state
-from utils.calc import calc
 
 def register(dp):
 
@@ -23,53 +22,46 @@ def register(dp):
 
         # 👤 OPEN CLIENT
         if client:
-            name = client[1]
-            price = client[2]
-            taken = client[3]
-            paid = client[4]
-
-            total, debt = calc(client)
-
-            user_state[uid] = {"client": name}
+            name, price, taken, paid = client[1], client[2], client[3], client[4]
 
             kb = types.ReplyKeyboardMarkup(
                 keyboard=[
                     [types.KeyboardButton("📦 Topshirish"), types.KeyboardButton("💳 To‘lov")],
-                    [types.KeyboardButton("💰 Narx belgilash")]
+                    [types.KeyboardButton("💰 Narx")]
                 ],
                 resize_keyboard=True
             )
+
+            user_state[uid] = {"client": name}
 
             await m.answer(f"""
 👤 {name}
 
 📦 Olingan: {taken}
 💰 Narx: {price}
-
 💳 To‘langan: {paid}
-❌ Qarz: {debt}
 """, reply_markup=kb)
             return
 
         # 📦 TOPSHIRISH
         if text == "📦 Topshirish":
             user_state[uid]["action"] = "take"
-            await m.answer("📦 Nechta dona?")
+            await m.answer("Nechta dona?")
             return
 
         # 💳 TO‘LOV
         if text == "💳 To‘lov":
             user_state[uid]["action"] = "pay"
-            await m.answer("💰 To‘lov summasi:")
+            await m.answer("To‘lov summasi:")
             return
 
         # 💰 NARX
-        if text == "💰 Narx belgilash":
+        if text == "💰 Narx":
             user_state[uid]["action"] = "price"
-            await m.answer("💰 1 dona narx:")
+            await m.answer("1 dona narx:")
             return
 
-        # 🔢 NUMBER
+        # NUMBER
         if text.isdigit():
             action = state.get("action")
             client = state.get("client")
@@ -77,18 +69,16 @@ def register(dp):
             if not client:
                 return
 
-            value = int(text)
-
             if action == "take":
-                update_field(client, "taken", value)
-                await m.answer("✔️ Topshirildi")
+                update(client, "taken", int(text))
+                await m.answer("✔️ Qo‘shildi")
 
             elif action == "pay":
-                update_field(client, "paid", value)
+                update(client, "paid", int(text))
                 await m.answer("✔️ To‘lov")
 
             elif action == "price":
-                set_field(client, "price", value)
+                set_value(client, "price", int(text))
                 await m.answer("✔️ Narx")
 
             user_state[uid] = {}
