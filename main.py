@@ -5,18 +5,12 @@ import sqlite3
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
 
-# =====================
-# CONFIG
-# =====================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# =====================
-# DATABASE
-# =====================
+# ================= DB =================
 conn = sqlite3.connect("crm.db", check_same_thread=False)
 cur = conn.cursor()
 
@@ -31,42 +25,9 @@ CREATE TABLE IF NOT EXISTS clients (
 """)
 conn.commit()
 
-# =====================
-# STATE
-# =====================
 state = {}
 
-# =====================
-# HELPERS
-# =====================
-def add_client(name):
-    cur.execute("INSERT OR IGNORE INTO clients (name) VALUES (?)", (name,))
-    conn.commit()
-
-def get_clients():
-    cur.execute("SELECT name FROM clients")
-    return cur.fetchall()
-
-def get_client(name):
-    cur.execute("SELECT * FROM clients WHERE name=?", (name,))
-    return cur.fetchone()
-
-def update(name, field, value):
-    cur.execute(f"UPDATE clients SET {field} = {field} + ? WHERE name=?", (value, name))
-    conn.commit()
-
-def set_value(name, field, value):
-    cur.execute(f"UPDATE clients SET {field}=? WHERE name=?", (value, name))
-    conn.commit()
-
-def calc(c):
-    total = c[2] * c[3]
-    debt = total - c[4]
-    return total, debt
-
-# =====================
-# START
-# =====================
+# ================= START =================
 @dp.message(CommandStart())
 async def start(m: types.Message):
     kb = types.ReplyKeyboardMarkup(
@@ -76,22 +37,19 @@ async def start(m: types.Message):
         ],
         resize_keyboard=True
     )
-    await m.answer("💼 CRM tizim ishga tushdi", reply_markup=kb)
+    await m.answer("💼 CRM ishga tushdi", reply_markup=kb)
 
-# =====================
-# ADD CLIENT MODE
-# =====================
+# ================= ADD CLIENT =================
 @dp.message(F.text == "➕ Mijoz qo‘shish")
 async def add(m: types.Message):
     state[m.from_user.id] = {"action": "add"}
     await m.answer("👤 Mijoz ismini yozing:")
 
-# =====================
-# LIST CLIENTS
-# =====================
+# ================= LIST =================
 @dp.message(F.text == "👥 Mijozlar")
-async def clients(m: types.Message):
-    rows = get_clients()
+async def list_clients(m: types.Message):
+    cur.execute("SELECT name FROM clients")
+    rows = cur.fetchall()
 
     if not rows:
         await m.answer("❌ Mijoz yo‘q")
@@ -104,17 +62,7 @@ async def clients(m: types.Message):
 
     await m.answer("👤 Mijoz tanlang:", reply_markup=kb)
 
-# =====================
-# BACK BUTTON
-# =====================
-@dp.message(F.text == "⬅️ Orqaga")
-async def back(m: types.Message):
-    state[m.from_user.id] = {}
-    await start(m)
-
-# =====================
-# MAIN HANDLER
-# =====================
+# ================= MAIN =================
 @dp.message()
 async def handler(m: types.Message):
     uid = m.from_user.id
@@ -122,31 +70,30 @@ async def handler(m: types.Message):
 
     st = state.get(uid, {})
 
-    # ➕ ADD CLIENT
+    # ADD
     if st.get("action") == "add":
-        add_client(text)
+        cur.execute("INSERT OR IGNORE INTO clients (name) VALUES (?)", (text,))
+        conn.commit()
         state[uid] = {}
         await m.answer("✔️ Qo‘shildi")
         return
 
-    client = get_client(text)
+    # OPEN CLIENT
+    cur.execute("SELECT * FROM clients WHERE name=?", (text,))
+    c = cur.fetchone()
 
-    # 👤 OPEN CLIENT
-    if client:
-        name = client[1]
-        price = client[2]
-        taken = client[3]
-        paid = client[4]
-
-        total, debt = calc(client)
+    if c:
+        name = c[1]
+        price = c[2]
+        taken = c[3]
+        paid = c[4]
 
         state[uid] = {"client": name}
 
         kb = types.ReplyKeyboardMarkup(
             keyboard=[
-                [types.KeyboardButton(text="📦 Topshirish"), types.KeyboardButton(text="💳 To‘lov")],
-                [types.KeyboardButton(text="💰 Narx belgilash")],
-                [types.KeyboardButton(text="⬅️ Orqaga")]
+                [types.KeyboardButton("📦 Topshirish"), types.KeyboardButton("💳 To‘lov")],
+                [types.KeyboardButton("💰 Narx")]
             ],
             resize_keyboard=True
         )
@@ -154,46 +101,19 @@ async def handler(m: types.Message):
         await m.answer(f"""
 👤 {name}
 
-📦 Olingan: {taken}
-💰 Narx: {price}
-💳 To‘langan: {paid}
-❌ Qarz: {debt}
+📦 {taken}
+💰 {price}
+💳 {paid}
 """, reply_markup=kb)
         return
 
-    # =====================
     # ACTIONS
-    # =====================
-text.isdigit():
-action = st.get("action")
-client = st.get("client")
-
-    if not action or not client:
+    if text in ["📦 Topshirish", "💳 To‘lov", "💰 Narx"]:
+        state[uid]["action"] = text
+        await m.answer("Raqam kiriting:")
         return
 
-    value = int(text)
-
-    # 📦 TOPSHIRISH
-    if action == "take":
-        update(client, "taken", value)
-        await m.answer(f"✔️ {value} dona qo‘shildi")
-
-    # 💳 TO‘LOV
-    elif action == "pay":
-        update(client, "paid", value)
-        await m.answer(f"✔️ {value} so‘m to‘landi")
-
-    # 💰 NARX
-    elif action == "price":
-        set_value(client, "price", value)
-        await m.answer(f"✔️ Narx {value} so‘m qilib qo‘yildi")
-
-    state[uid] = {}
-    return
-
-    # =====================
-    # NUMBERS ONLY
-    # =====================
+    # NUMBERS
     if text.isdigit():
         action = st.get("action")
         client = st.get("client")
@@ -201,45 +121,22 @@ client = st.get("client")
         if not client:
             return
 
-        value = int(text)
+        val = int(text)
 
-        if action == "take":
-            update(client, "taken", value)
-            await m.answer("✔️ Topshirildi")
+        if action == "📦 Topshirish":
+            cur.execute("UPDATE clients SET taken = taken + ? WHERE name=?", (val, client))
 
-        elif action == "pay":
-            update(client, "paid", value)
-            await m.answer("✔️ To‘lov qabul qilindi")
+        elif action == "💳 To‘lov":
+            cur.execute("UPDATE clients SET paid = paid + ? WHERE name=?", (val, client))
 
-        elif action == "price":
-            set_value(client, "price", value)
-            await m.answer("✔️ Narx saqlandi")
+        elif action == "💰 Narx":
+            cur.execute("UPDATE clients SET price=? WHERE name=?", (val, client))
 
+        conn.commit()
         state[uid] = {}
-        return
+        await m.answer("✔️ Saqlandi")
 
-# =====================
-# REPORT
-# =====================
-@dp.message(F.text == "📊 Hisobot")
-async def report(m: types.Message):
-    cur.execute("SELECT * FROM clients")
-    rows = cur.fetchall()
-
-    total_debt = 0
-
-    for r in rows:
-        total = r[2] * r[3]
-        debt = total - r[4]
-        total_debt += debt
-
-    await m.answer(f"📊 Umumiy qarz: {total_debt} so‘m")
-
-# 
-
-# =====================
-# RUN
-# =====================
+# ================= RUN =================
 async def main():
     await dp.start_polling(bot)
 
