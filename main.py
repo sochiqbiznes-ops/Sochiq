@@ -25,7 +25,6 @@ CREATE TABLE IF NOT EXISTS clients (
 """)
 conn.commit()
 
-# ================= STATE =================
 state = {}
 
 # ================= START =================
@@ -33,32 +32,57 @@ state = {}
 async def start(m: types.Message):
     kb = types.ReplyKeyboardMarkup(
         keyboard=[
-            [types.KeyboardButton(text="➕ Mijoz qo‘shish"), types.KeyboardButton(text="👥 Mijozlar")]
+            [types.KeyboardButton(text="➕ Mijoz qo‘shish")],
+            [types.KeyboardButton(text="👥 Mijozlar")],
+            [types.KeyboardButton(text="📊 Hisobot")]
         ],
         resize_keyboard=True
     )
     await m.answer("💼 CRM ishga tushdi", reply_markup=kb)
 
-# ================= ADD CLIENT =================
+# ================= ADD =================
 @dp.message(F.text == "➕ Mijoz qo‘shish")
 async def add(m: types.Message):
     state[m.from_user.id] = {"action": "add"}
-    await m.answer("👤 Mijoz ismini yozing:")
+    await m.answer("👤 Ism yozing:")
 
 # ================= LIST =================
 @dp.message(F.text == "👥 Mijozlar")
-async def list_clients(m: types.Message):
+async def clients(m: types.Message):
     cur.execute("SELECT name FROM clients")
     rows = cur.fetchall()
+
+    if not rows:
+        await m.answer("❌ Mijoz yo‘q")
+        return
 
     kb = types.ReplyKeyboardMarkup(
         keyboard=[[types.KeyboardButton(text=r[0])] for r in rows],
         resize_keyboard=True
     )
 
-    await m.answer("👤 Mijoz tanlang:", reply_markup=kb)
+    await m.answer("👤 Tanlang:", reply_markup=kb)
 
-# ================= MAIN =================
+# ================= REPORT (YO‘QOLGAN JOY FIX) =================
+@dp.message(F.text == "📊 Hisobot")
+async def report(m: types.Message):
+    cur.execute("SELECT * FROM clients")
+    rows = cur.fetchall()
+
+    total_debt = 0
+
+    for r in rows:
+        price = r[2]
+        taken = r[3]
+        paid = r[4]
+
+        total = price * taken
+        debt = total - paid
+        total_debt += debt
+
+    await m.answer(f"📊 Jami qarz: {total_debt} so‘m")
+
+# ================= CLIENT OPEN =================
 @dp.message()
 async def handler(m: types.Message):
     uid = m.from_user.id
@@ -73,14 +97,14 @@ async def handler(m: types.Message):
         await m.answer("✔️ Qo‘shildi")
         return
 
-    # 👤 OPEN CLIENT (MUHIM FIX)
+    # 👤 OPEN CLIENT
     cur.execute("SELECT * FROM clients WHERE name=?", (text,))
     c = cur.fetchone()
 
     if c:
         state[uid] = {
             "client_id": c[0],
-            "client_name": c[1]
+            "name": c[1]
         }
 
         kb = types.ReplyKeyboardMarkup(
@@ -100,7 +124,7 @@ async def handler(m: types.Message):
 """, reply_markup=kb)
         return
 
-    # ================= ACTIONS =================
+    # ================= ACTION =================
     if text in ["📦 Topshirish", "💳 To‘lov", "💰 Narx"]:
         state[uid]["action"] = text
         await m.answer("Raqam kiriting:")
