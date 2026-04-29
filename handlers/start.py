@@ -1,9 +1,9 @@
 from aiogram import types
-from database import get_clients
+from aiogram.filters import CommandStart
 
 def register(dp):
 
-    @dp.message(commands=["start"])
+    @dp.message(CommandStart())
     async def start(m: types.Message):
         kb = types.ReplyKeyboardMarkup(
             keyboard=[
@@ -12,4 +12,5 @@ def register(dp):
             ],
             resize_keyboard=True
         )
+
         await m.answer("💼 CRM ishga tushdi", reply_markup=kb)
