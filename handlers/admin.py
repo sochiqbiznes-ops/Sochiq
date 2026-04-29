@@ -3,7 +3,6 @@ from aiogram.types import Message, CallbackQuery
 
 from config import ADMIN_ID
 from db import connect
-from keyboards import main_menu_kb
 
 from keyboards.main_menu import barber_inline_kb
 from keyboards.reply_menu import admin_reply_kb
