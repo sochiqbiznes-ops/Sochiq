@@ -1,11 +1,14 @@
 from aiogram import Router, F
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 
 from db import connect
 from keyboards.main_menu import barber_inline_kb
 from keyboards.reply_menu import admin_reply_kb
 
 router = Router()
+
+user_state = {}
+current_barber = {}
 
 
 @router.message(F.text == "/start")
