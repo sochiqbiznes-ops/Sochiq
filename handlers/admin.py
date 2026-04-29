@@ -4,6 +4,7 @@ from aiogram.types import Message, CallbackQuery
 from db import connect
 from keyboards.main_menu import barber_inline_kb
 from keyboards.reply_menu import admin_reply_kb
+from keyboards.barber_menu import barber_menu_kb
 
 router = Router()
 user_state = {}
