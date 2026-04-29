@@ -90,6 +90,8 @@ async def open_barber(call: CallbackQuery):
 
     barber_id = int(call.data.split("_")[1])
 
+    current_barber[call.from_user.id] = barber_id
+
     conn = connect()
     cur = conn.cursor()
 
@@ -99,7 +101,30 @@ async def open_barber(call: CallbackQuery):
     conn.close()
 
     await call.message.answer(
-        f"🏪 Barber: {barber[0]}\n\n👤 Mijoz qo‘shish bosqichi keyin qilamiz"
+        f"🏪 {barber[0]} ichiga kirdingiz",
+        reply_markup=barber_menu_kb()
     )
 
     await call.answer()
+
+
+
+# =====================
+# BACK BUTTON
+# =====================
+@router.message(F.text == "🔙 Orqaga")
+async def back_to_main(message: Message):
+
+    conn = connect()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM barbers")
+    barbers = cur.fetchall()
+
+    conn.close()
+
+    await message.answer("🏠 Bosh menyu")
+    await message.answer(
+        "🏪 Sartaroshxonalar:",
+        reply_markup=barber_inline_kb(barbers)
+    )
