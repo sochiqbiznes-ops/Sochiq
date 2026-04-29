@@ -1,5 +1,5 @@
-from aiogram import types
 from aiogram.filters import CommandStart
+from aiogram import types
 
 def register(dp):
 
@@ -7,8 +7,8 @@ def register(dp):
     async def start(m: types.Message):
         kb = types.ReplyKeyboardMarkup(
             keyboard=[
-                [types.KeyboardButton(text="➕ Mijoz qo‘shish"), types.KeyboardButton(text="👥 Mijozlar")],
-                [types.KeyboardButton(text="📊 Hisobot")]
+                [types.KeyboardButton("➕ Mijoz qo‘shish"), types.KeyboardButton("👥 Mijozlar")],
+                [types.KeyboardButton("📊 Hisobot")]
             ],
             resize_keyboard=True
         )
