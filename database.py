@@ -15,27 +15,22 @@ CREATE TABLE IF NOT EXISTS clients (
 
 conn.commit()
 
-
 def add_client(name):
     cur.execute("INSERT OR IGNORE INTO clients (name) VALUES (?)", (name,))
     conn.commit()
-
 
 def get_clients():
     cur.execute("SELECT name FROM clients")
     return cur.fetchall()
 
-
 def get_client(name):
     cur.execute("SELECT * FROM clients WHERE name=?", (name,))
     return cur.fetchone()
 
-
-def update_field(name, field, value):
+def update(name, field, value):
     cur.execute(f"UPDATE clients SET {field} = {field} + ? WHERE name=?", (value, name))
     conn.commit()
 
-
-def set_field(name, field, value):
+def set_value(name, field, value):
     cur.execute(f"UPDATE clients SET {field}=? WHERE name=?", (value, name))
     conn.commit()
