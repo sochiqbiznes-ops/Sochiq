@@ -224,6 +224,36 @@ async def report(m: types.Message):
     await m.answer(f"📊 Umumiy qarz: {total_debt} so‘m")
 
 # =====================
+# NUMBERS FIXED CORE
+# =====================
+if text.isdigit():
+    action = st.get("action")
+    client = st.get("client")
+
+    if not action or not client:
+        return
+
+    value = int(text)
+
+    # 📦 TOPSHIRISH
+    if action == "take":
+        update(client, "taken", value)
+        await m.answer(f"✔️ {value} dona qo‘shildi")
+
+    # 💳 TO‘LOV
+    elif action == "pay":
+        update(client, "paid", value)
+        await m.answer(f"✔️ {value} so‘m to‘landi")
+
+    # 💰 NARX
+    elif action == "price":
+        set_value(client, "price", value)
+        await m.answer(f"✔️ Narx {value} so‘m qilib qo‘yildi")
+
+    state[uid] = {}
+    return
+
+# =====================
 # RUN
 # =====================
 async def main():
