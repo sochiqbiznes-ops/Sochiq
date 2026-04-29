@@ -1,7 +1,6 @@
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 
-from config import ADMIN_ID
 from db import connect
 from keyboards.main_menu import barber_inline_kb
 from keyboards.reply_menu import admin_reply_kb
@@ -15,14 +14,13 @@ user_state = {}
 # =====================
 @router.message(F.text == "/start")
 async def start_handler(message: Message):
-    if message.from_user.id != ADMIN_ID:
-        await message.answer("⛔ Ruxsat yo‘q")
-        return
 
     conn = connect()
     cur = conn.cursor()
+
     cur.execute("SELECT * FROM barbers")
     barbers = cur.fetchall()
+
     conn.close()
 
     await message.answer(
@@ -37,32 +35,20 @@ async def start_handler(message: Message):
 
 
 # =====================
-# REPLY BUTTON
+# ADD BARBER (reply button)
 # =====================
 @router.message(F.text == "➕ Sartaroshxona qo‘shish")
-async def add_barber_button(message: Message):
-    user_state[message.from_user.id] = "barber"
-    await message.answer("🏪 Sartaroshxona nomini yozing:")
+async def add_barber(message: Message):
+    user_state[message.from_user.id] = "add_barber"
+    await message.answer("🏪 Nomi yozing:")
 
 
 # =====================
-# INLINE BARBER
-# =====================
-@router.callback_query(F.data.startswith("barber_"))
-async def open_barber(call: CallbackQuery):
-    barber_id = int(call.data.split("_")[1])
-
-    user_state[call.from_user.id] = f"client_{barber_id}"
-
-    await call.message.answer("👤 Mijoz ismini yozing:")
-    await call.answer()
-
-
-# =====================
-# TEXT SAVE
+# SAVE BARBER
 # =====================
 @router.message()
-async def text_handler(message: Message):
+async def save_text(message: Message):
+
     uid = message.from_user.id
 
     if uid not in user_state:
@@ -73,27 +59,47 @@ async def text_handler(message: Message):
     conn = connect()
     cur = conn.cursor()
 
-    if state == "barber":
+    if state == "add_barber":
         cur.execute(
             "INSERT INTO barbers (name) VALUES (?)",
             (message.text,)
         )
         conn.commit()
-        conn.close()
 
         del user_state[uid]
-        await message.answer("✅ Sartaroshxona qo‘shildi")
-        return
 
-    if state.startswith("client_"):
-        barber_id = int(state.split("_")[1])
+        # refresh list
+        cur.execute("SELECT * FROM barbers")
+        barbers = cur.fetchall()
 
-        cur.execute(
-            "INSERT INTO clients (name, barber_id) VALUES (?, ?)",
-            (message.text, barber_id)
+        conn.close()
+
+        await message.answer("✅ Qo‘shildi")
+
+        await message.answer(
+            "🏪 Yangilangan ro‘yxat:",
+            reply_markup=barber_inline_kb(barbers)
         )
-        conn.commit()
-        conn.close()
 
-        del user_state[uid]
-        await message.answer("✅ Mijoz qo‘shildi")
+
+# =====================
+# OPEN BARBER
+# =====================
+@router.callback_query(F.data.startswith("barber_"))
+async def open_barber(call: CallbackQuery):
+
+    barber_id = int(call.data.split("_")[1])
+
+    conn = connect()
+    cur = conn.cursor()
+
+    cur.execute("SELECT name FROM barbers WHERE id = ?", (barber_id,))
+    barber = cur.fetchone()
+
+    conn.close()
+
+    await call.message.answer(
+        f"🏪 Barber: {barber[0]}\n\n👤 Mijoz qo‘shish bosqichi keyin qilamiz"
+    )
+
+    await call.answer()
