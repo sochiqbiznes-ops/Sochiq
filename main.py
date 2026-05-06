@@ -1,6 +1,5 @@
 import asyncio
 import logging
-# rebuild
 
 from aiogram import Bot, Dispatcher
 
@@ -11,14 +10,14 @@ from handlers import start, admin
 
 logging.basicConfig(level=logging.INFO)
 
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
-
-# routerlarni ulaymiz
-dp.include_router(start.router)
-dp.include_router(admin.router)
-
 async def main():
+    bot = Bot(token=BOT_TOKEN)
+    dp = Dispatcher()
+
+    # routerlarni ulaymiz
+    dp.include_router(start.router)
+    dp.include_router(admin.router)
+
     await init_db()
     await dp.start_polling(bot)
 
