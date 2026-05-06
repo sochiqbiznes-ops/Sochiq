@@ -1,0 +1,1 @@
+# bo‘sh fayl bo‘lishi ham yetadi
