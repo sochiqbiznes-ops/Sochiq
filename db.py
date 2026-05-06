@@ -1,6 +1,7 @@
 import asyncpg
 from config import DATABASE_URL
 
+
 async def init_db():
     conn = await asyncpg.connect(DATABASE_URL)
     await conn.execute("""
@@ -15,7 +16,10 @@ async def init_db():
 
 async def get_user(user_id):
     conn = await asyncpg.connect(DATABASE_URL)
-    user = await conn.fetchrow("SELECT * FROM users WHERE id=$1", user_id)
+    user = await conn.fetchrow(
+        "SELECT * FROM users WHERE id=$1",
+        user_id
+    )
     await conn.close()
     return user
 
